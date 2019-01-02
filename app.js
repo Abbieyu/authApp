@@ -34,7 +34,30 @@ app.use(cookieParser());
 function auth(req,res,next){
   console.log(req.headers);
 
-  var authHEader = req.headers.authorization;
+  var authHeader = req.headers.authorization;
+  if(!authHeader){//the client did not provide username and password
+    var err = new Error('You are not authenticated');
+    res.setHeader('WWW-Authenticate','Basic');
+    err.status=401;
+    return next(err);
+  }
+
+  //extract the authheader by splitting the value, -
+  //the second element of the Array is where the base64 encoded string exists
+  //then splitting on the : that separates the un an the pw
+  var auth = new Buffer(authHeader.split(' ')[1],'base64').toString().split(':');
+  var username = auth[0];
+  var password = auth[1];
+
+  if(username==='admin' && password==='password'){
+    next();//pass the request to the next middleware
+  }
+  else{
+    var err = new Error('You are not authenticated');
+    res.setHeader('WWW-Authenticate','Basic');
+    err.status=401;
+    return next(err);
+  }
 }
 
 app.use(auth);//before the client can access any of the following lines , he must be authenticated
