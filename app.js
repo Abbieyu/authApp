@@ -29,36 +29,51 @@ app.set('view engine', 'jade');
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
+app.use(cookieParser('12345-67890-09876-54321'));
 
 function auth(req,res,next){
-  console.log(req.headers);
+  console.log('logging the header',req.headers);
+  console.log('logging the cookies',req.signedCookies);
+  if(!req.signedCookies.user){//if there is no cookie, authenticate the user using basic authentication
+    var authHeader = req.headers.authorization;
 
-  var authHeader = req.headers.authorization;
-  if(!authHeader){//the client did not provide username and password
-    var err = new Error('You are not authenticated');
-    res.setHeader('WWW-Authenticate','Basic');
-    err.status=401;
-    return next(err);
-  }
+    if(!authHeader){//the client did not provide username and password
+      var err = new Error('You are not authenticated');
+      res.setHeader('WWW-Authenticate','Basic');
+      err.status=401;
+      return next(err);
+    }
 
-  //extract the authheader by splitting the value, -
-  //the second element of the Array is where the base64 encoded string exists
-  //then splitting on the : that separates the un an the pw
-  var auth = new Buffer(authHeader.split(' ')[1],'base64').toString().split(':');
-  var username = auth[0];
-  var password = auth[1];
+    //extract the authheader by splitting the value, -
+    //the second element of the Array is where the base64 encoded string exists -
+    //then splitting on the : that separates the un an the pw
+    var auth = new Buffer.from(authHeader.split(' ')[1],'base64').toString().split(':');
+    var username = auth[0];
+    var password = auth[1];
+    //when the basic authentication is successful,create the cookie
+    if(username==='admin' && password==='password'){//here we will setup the cookie
+      res.cookie('user','admin',{signed :true});
+      next();//pass the request to the next middleware
+    }
+    else{
+      var err = new Error('You are not authenticated');
+      err.status=401;
+      return next(err);
+    }
+  }
+  else{//if a cookie exists
+    if(req.signedCookies.user==='admin')
+    {
+      next();
+    }
+    else{
+      var err = new Error('You are not authenticated');
 
-  if(username==='admin' && password==='password'){
-    next();//pass the request to the next middleware
-  }
-  else{
-    var err = new Error('You are not authenticated');
-    res.setHeader('WWW-Authenticate','Basic');
-    err.status=401;
-    return next(err);
-  }
+      err.status=401;
+      return next(err);
+    }
 }
+}//end function
 
 app.use(auth);//before the client can access any of the following lines , he must be authenticated
 app.use(express.static(path.join(__dirname, 'public')));
