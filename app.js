@@ -3,6 +3,9 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+var session = require('express-session');
+var fileStore = require('session-file-store')(session);
+
 const mongoose = require('mongoose');
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
@@ -29,14 +32,20 @@ app.set('view engine', 'jade');
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser('12345-67890-09876-54321'));
-
+//app.use(cookieParser('12345-67890-09876-54321'));
+app.use(session({
+  name: 'session-id',
+  secret:'12345-67890-09876-54321',
+  saveUninitialized: false,
+  resave: false,
+  store: new fileStore()
+}));
 function auth(req,res,next){
-  console.log('logging the header',req.headers);
-  console.log('logging the cookies',req.signedCookies);
-  if(!req.signedCookies.user){//if there is no cookie, authenticate the user using basic authentication
+  console.log('logging the session',req.session);
+  //console.log('logging the cookies',req.signedCookies);
+  if(!req.session.user){//if there is no session, authenticate the user using basic authentication
     var authHeader = req.headers.authorization;
-
+    console.log('I am here');
     if(!authHeader){//the client did not provide username and password
       var err = new Error('You are not authenticated');
       res.setHeader('WWW-Authenticate','Basic');
@@ -47,28 +56,33 @@ function auth(req,res,next){
     //extract the authheader by splitting the value, -
     //the second element of the Array is where the base64 encoded string exists -
     //then splitting on the : that separates the un an the pw
+    console.log('I am there');
     var auth = new Buffer.from(authHeader.split(' ')[1],'base64').toString().split(':');
     var username = auth[0];
     var password = auth[1];
     //when the basic authentication is successful,create the cookie
-    if(username==='admin' && password==='password'){//here we will setup the cookie
-      res.cookie('user','admin',{signed :true});
+    if(username=='admin' && password=='password'){//here we will setup the cookie
+      console.log('the username and password are correct');
+      req.session.user = 'admin';//('user','admin',{signed :true});
+      console.log('the error was before this');
       next();//pass the request to the next middleware
     }
     else{
+      console.log('the user name and password are incorrect');
       var err = new Error('You are not authenticated');
       err.status=401;
       return next(err);
     }
   }
-  else{//if a cookie exists
-    if(req.signedCookies.user==='admin')
+  else{//if a session exists
+    if(req.session.user==='admin')
     {
+      console.log('a session exists');
       next();
     }
     else{
       var err = new Error('You are not authenticated');
-
+      console.log('a session does not exist');
       err.status=401;
       return next(err);
     }
