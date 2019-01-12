@@ -5,7 +5,6 @@ const Schema = Mongoose.Schema;
 
 //use the currency module
 require('mongoose-currency').loadType(Mongoose);
-console.log('mongcurr');
 const currency = Mongoose.Types.Currency;
 
 //the comment schema

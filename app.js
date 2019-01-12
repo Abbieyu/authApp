@@ -40,60 +40,34 @@ app.use(session({
   resave: false,
   store: new fileStore()
 }));
+
+app.use('/', indexRouter);
+app.use('/users', usersRouter);
+
 function auth(req,res,next){
   console.log('logging the session',req.session);
-  //console.log('logging the cookies',req.signedCookies);
-  if(!req.session.user){//if there is no session, authenticate the user using basic authentication
-    var authHeader = req.headers.authorization;
-    console.log('I am here');
-    if(!authHeader){//the client did not provide username and password
+  if(!req.session.user){
       var err = new Error('You are not authenticated');
-      res.setHeader('WWW-Authenticate','Basic');
-      err.status=401;
+      err.status=403;
       return next(err);
     }
-
-    //extract the authheader by splitting the value, -
-    //the second element of the Array is where the base64 encoded string exists -
-    //then splitting on the : that separates the un an the pw
-    console.log('I am there');
-    var auth = new Buffer.from(authHeader.split(' ')[1],'base64').toString().split(':');
-    var username = auth[0];
-    var password = auth[1];
-    //when the basic authentication is successful,create the cookie
-    if(username=='admin' && password=='password'){//here we will setup the cookie
-      console.log('the username and password are correct');
-      req.session.user = 'admin';//('user','admin',{signed :true});
-      console.log('the error was before this');
-      next();//pass the request to the next middleware
-    }
-    else{
-      console.log('the user name and password are incorrect');
-      var err = new Error('You are not authenticated');
-      err.status=401;
-      return next(err);
-    }
-  }
   else{//if a session exists
-    if(req.session.user==='admin')
+    if(req.session.user==='authenticated')
     {
-      console.log('a session exists');
       next();
     }
     else{
       var err = new Error('You are not authenticated');
-      console.log('a session does not exist');
-      err.status=401;
+      err.status=403;
       return next(err);
     }
 }
-}//end function
+}
 
 app.use(auth);//before the client can access any of the following lines , he must be authenticated
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
+
 app.use('/dishes',dishRouter);
 app.use('/promotions',promoRouter);
 app.use('/leaders',leaderRouter);
