@@ -1,0 +1,24 @@
+using passport jwt:
+1-create a config.js file to store some configuration information about the server
+inside it goes the secretKey and mongoUrl
+2- in authenticate.js , require the passport-jwt strategy, extract it , and require the jsonwebtoken
+3- import config.js
+4- add a few additional functions
+    A) getToken(user) creates the token and returns it
+    B) create variable opts // the options that specify how the jwt should be extracted
+    C) export the function jwtpassport // create a new JWTStrategy that takes the opts as the 
+    first parameter, and the second one is the verify function
+        a) verify function is (jwt_payload,done) when this function is called, the done is the callback that passes back the informationto passport
+        which it will extract information and load it , inside the function , we will search for the user
+        using User.findOne(_id:jwt_payload._id)
+    D) verifyUser // to verify an incoming user , it will use passport.authenticate , which will take
+    jwtStrategy which we just configured, nd the second parameter we set session:false because we are
+    using tokens and not sessions
+5- create the token in the users.js file in login. we will authenticate the user using the username and password
+once the user is authenticated using the username and password, we will issue the token to said user, and
+all of the subsequent requests will carry the token in the header of the incoming request message
+6- in app.js require the config file
+7- add Url = config.mongoUrl
+what happens now is when the user authenticates on the users/login and is successfully authenticated, 
+a token will be created on the server and sent back to the client(user) and the user will 
+include the token in every request in the authheader
