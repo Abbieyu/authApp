@@ -29,7 +29,7 @@ opts.secretOrKey= config.secretKey;
 
 exports.jwtPassport = passport.use(new JWTStrategy(opts,
     (jwt_payload,done)=>{//the done is a callback
-    console.log('JWT payload: ',jwt_payload);
+    //console.log('JWT payload: ',jwt_payload);
     User.findOne({_id:jwt_payload._id},
         (err,user)=>{
         if(err){
@@ -48,3 +48,19 @@ exports.jwtPassport = passport.use(new JWTStrategy(opts,
 }));
 
 exports.verifyUser = passport.authenticate('jwt',{session:false});
+
+exports.verifyAdmin = (req,res,next)=>{
+    console.log('verifydmin');
+    console.log('admin=',req.user.admin);
+    if(req.user.admin)
+    {
+        console.log('user found');
+        next();
+    }
+    else{
+        console.log('user not found');
+        var err = new Error('You are not authorized to perform this operation!');
+        err.status=403;
+        next(err);
+    }
+}

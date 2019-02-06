@@ -6,9 +6,15 @@ router.use(bodyParser.json());
 var passport = require('passport');
 var authenticate = require('../authenticate');
 /* GET users listing. */
-router.get('/', function(req, res, next) {
-  res.send('respond with a resource');
-});
+router.get('/',authenticate.verifyUser,authenticate.verifyAdmin,(req,res,next)=>{
+  User.find({})
+  .then((users)=>{
+    res.statusCode=200;
+    res.setHeader('content-type','application/json');
+    res.json(users);
+  },(err)=>next(err))
+  .catch((err)=>next(err));
+})
 
 //post on users/signup
 router.post('/signup',function(req,res,next){
@@ -60,5 +66,6 @@ router.get('/logout',(req,res,next)=>{
     next(err);
   }
 });
+
 
 module.exports = router;

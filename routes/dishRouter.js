@@ -21,9 +21,7 @@ dishRouter.route('/')
     },(err)=>next(err))
     .catch((err)=>next(err));//if an error is returned , pass it to the error handler
 })
-.post(authenticate.verifyUser,(req,res,next)=>{//if a request comes in, verify the user first, then allow access if successful
-    // res.statusCode=403;
-    // res.end('POST operation is not supported on /dishes/'+req.params.dishId);
+.post(authenticate.verifyUser,authenticate.verifyAdmin,(req,res,next)=>{//if a request comes in, verify the user first, then allow access if successful
     console.log('we have entered');
     Dishes.create(req.body)
     .then((dish)=>{
@@ -34,11 +32,11 @@ dishRouter.route('/')
     },(err)=>next(err))
     .catch((err)=>next(err));
 })
-.put(authenticate.verifyUser,(req,res,next)=>{
+.put(authenticate.verifyUser,authenticate.verifyAdmin,(req,res,next)=>{
     res.statusCode=403;//operation not supported
     res.end('PUT operation not supported on /dishes');
 })
-.delete(authenticate.verifyUser,(req,res,next)=>{
+.delete(authenticate.verifyUser,authenticate.verifyAdmin,(req,res,next)=>{
     //res.end('deleting dish: '+req.params.dishId);
     Dishes.remove({})
     .then((resp)=>{
@@ -64,13 +62,13 @@ dishRouter.route('/:dishId')
     .catch((err)=>next(err));
 })
 //post
-.post(authenticate.verifyUser,(req,res,next)=>{
+.post(authenticate.verifyUser,authenticate.verifyAdmin,(req,res,next)=>{
     console.log('inside');
     res.statusCode=403;//operation not supported
     res.end('POST operation not supported on /dishes');
 })
 //put
-.put(authenticate.verifyUser,(req,res,next)=>{
+.put(authenticate.verifyUser,authenticate.verifyAdmin,(req,res,next)=>{
     Dishes.findByIdAndUpdate(req.params.dishId,{
         $set:req.body
     },{new:true})//it will return the updated dish as a json reply
@@ -82,7 +80,7 @@ dishRouter.route('/:dishId')
     .catch((err)=>next(err));
 })
 //delete
-.delete(authenticate.verifyUser,(req,res,next)=>{
+.delete(authenticate.verifyUser,authenticate.verifyAdmin,(req,res,next)=>{
     // res.end('deleting all the dishes');//ends the handling of the request
     Dishes.findByIdAndRemove(req.params.dishId)
     .then((resp)=>{
@@ -102,7 +100,7 @@ dishRouter.route('/:dishId/comments')
     console.log('/comments/ log');
    // res.end('will send dish of details: '+req.params.dishId+' to you!');
     Dishes.findById(req.params.dishId)//this will return a promise
-    .populte('comments.author')
+    .populate('comments.author')
     .then((dish)=>{//if the promise is returned correctly as 'dish'
         //handle the returned value here
         console.log('found dishes');
@@ -181,7 +179,7 @@ dishRouter.route('/:dishId/comments')
 dishRouter.route('/:dishId/comments/:commentId')
 .get((req,res,next)=>{
     Dishes.findById(req.params.dishId)
-    .populte('comments.author')
+    .populate('comments.author')
     .then((dish)=>{
         if(dish!=null && dish.comments.id(req.params.commentId)!=null){//make sure that the dish exists and the comments are not empty
             res.statusCode=200;
@@ -211,23 +209,35 @@ dishRouter.route('/:dishId/comments/:commentId')
     //locate the comment
     Dishes.findById(req.params.dishId)
     .then((dish)=>{
-        if(dish!=null && dish.comments.id(req.params.commentId)!=null){//the dish exists and the comment exists
-            if(req.body.rating){
-                dish.comments.id(req.params.commentId).rating = req.body.rating;
+        var id1=req.user._id;
+        var id2=dish.comments.id(req.params.commentId).author;
+        if(id1.equals(id2)){
+            console.log('found a match');
+            if(dish!=null && dish.comments.id(req.params.commentId)!=null){//the dish exists and the comment exists
+                if(req.body.rating){
+                    dish.comments.id(req.params.commentId).rating = req.body.rating;
+                }
+                if(req.body.comment){
+                    dish.comments.id(req.params.commentId).comment = req.body.comment;
+                }
+                dish.save()//save the dish
+                .then((dish)=>{//then
+                    //populate the comment's author
+                    Dishes.findById(dish._id)
+                    .then((dish)=>{
+                        res.statusCode=200;
+                        res.setHeader('content-type','application/json');
+                        res.json(dish);//return the updated dish
+                    })
+                },(err)=>next(err));
             }
-            if(req.body.comment){
-                dish.comments.id(req.params.commentId).comment = req.body.comment;
-            }
-            dish.save()//save the dish
-            .then((dish)=>{//then
-                //populate the comment's author
-                Dishes.findById(dish._id)
-                .then((dish)=>{
-                    res.statusCode=200;
-                    res.setHeader('content-type','application/json');
-                    res.json(dish);//return the updated dish
-                })
-            },(err)=>next(err));
+        }
+        else if(!(id1.equals(id2)))
+        {
+            console.log('no match');
+            var err = new Error('You are not authorized to perform this op');
+            err.status=403;
+            next(err);
         }
         else if(dish==null){//the dish does not exist
             err = new Error('Dish '+req.params.dishId+' was not found');
@@ -247,17 +257,31 @@ dishRouter.route('/:dishId/comments/:commentId')
     // res.end('deleting all the dishes');//ends the handling of the request
     Dishes.findById(req.params.dishId)//first find the dish
     .then((dish)=>{
-        if(dish!=null && dish.comments.id(req.params.commentId)!=null){//the dish exists and the comment exists
-            dish.comments.id(req.params.commentId).remove();//remove the comment
-            dish.save()
-            .then((dish)=>{//then
-                Dishes.findById(dish._id)
-                .then((dish)=>{
-                    res.statusCode=200;
-                    res.setHeader('content-type','application/json');
-                    res.json(dish);//return the updated dish
-                })
-            },(err)=>next(err));
+        var id1=req.user._id;
+        console.log('id1=',id1);
+        var id2=dish.comments.id(req.params.commentId).author;
+        console.log(req.params.commentId);
+        console.log('id2=',id2);
+        if(id1.equals(id2)){
+            console.log('entered');
+            if(dish!=null && dish.comments.id(req.params.commentId)!=null){//the dish exists and the comment exists
+                dish.comments.id(req.params.commentId).remove();//remove the comment
+                dish.save()
+                .then((dish)=>{//then
+                    Dishes.findById(dish._id)
+                    .then((dish)=>{
+                        res.statusCode=200;
+                        res.setHeader('content-type','application/json');
+                        res.json(dish);//return the updated dish
+                    })
+                },(err)=>next(err));
+            }
+        }
+        else if(!id1.equals(id2)){
+            console.log('no match to delete');
+            var err = new Error('You are not authorized to perform this operation');
+            err.status = 403;
+            next(err);
         }
         else if(dish==null){//if the dish does not exist
             err = new Error('Dish '+req.params.dishId+' was not found');
