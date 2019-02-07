@@ -17,7 +17,16 @@ const leaderRouter = require('./routes/leaderRouter');
 
 
 var app = express();
-
+//redirect all traffic to the secure server
+app.all('*',(req,res,next)=>{
+  if(req.secure){//if the incoming request is a secure request
+      return next(); //pass it to its handler
+  }
+  else{//if the request is coming to the insecure server
+    //307 is a statusCode that means the the requested resource resides temporarily on a different url
+    res.redirect(307,'https://'+req.hostname+':'+app.get('secPort')+req.url);
+  }
+});
 
 const url = 'mongodb://localhost:27017/confusion'
 const connect = mongoose.connect(url);
