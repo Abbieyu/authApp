@@ -23,6 +23,7 @@ dishRouter.route('/')
 })
 .post(authenticate.verifyUser,authenticate.verifyAdmin,(req,res,next)=>{//if a request comes in, verify the user first, then allow access if successful
     console.log('we have entered');
+    console.log(req.body);
     Dishes.create(req.body)
     .then((dish)=>{
         console.log('dish created: ',dish);
